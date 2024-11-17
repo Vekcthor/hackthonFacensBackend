@@ -1,7 +1,11 @@
 package com.hackthon.dms.service;
 
+import com.hackthon.dms.model.EncryptedFile;
+import com.hackthon.dms.repository.FileRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.multipart.MultipartFile;
+
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
