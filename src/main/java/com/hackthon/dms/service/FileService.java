@@ -4,11 +4,13 @@ import com.hackthon.dms.model.EncryptedFile;
 import com.hackthon.dms.repository.FileRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.multipart.MultipartFile;
-
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
-import java.security.Key;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
+
+import java.time.LocalDateTime;
+import java.util.Base64;
 
 @Service
 public class FileService {
@@ -16,23 +18,40 @@ public class FileService {
     @Autowired
     private FileRepository fileRepository;
 
-    public void encryptAndSaveFile(MultipartFile file) throws Exception {
-        byte[] fileBytes = file.getBytes();
+     private static final String ALGORITHM = "AES";
 
-        // Encryption using AES
-        Key aesKey = generateAESKey();
-        Cipher cipher = Cipher.getInstance("AES");
-        cipher.init(Cipher.ENCRYPT_MODE, aesKey);
-        byte[] encryptedBytes = cipher.doFinal(fileBytes);
-
-        // Save encrypted bytes to DB
-        EncryptedFile encryptedFile = new EncryptedFile(file.getOriginalFilename(), encryptedBytes);
-        fileRepository.save(encryptedFile);
+    public String generateKey() throws Exception {
+        KeyGenerator keyGen = KeyGenerator.getInstance(ALGORITHM);
+        keyGen.init(128);
+        SecretKey key = keyGen.generateKey();
+        return Base64.getEncoder().encodeToString(key.getEncoded());
     }
 
-    private Key generateAESKey() throws Exception {
-        KeyGenerator keyGen = KeyGenerator.getInstance("AES");
-        keyGen.init(128); // For AES-128 encryption
-        return keyGen.generateKey();
+    public byte[] encrypt(byte[] data, String key) throws Exception {
+        SecretKeySpec keySpec = new SecretKeySpec(Base64.getDecoder().decode(key), ALGORITHM);
+        Cipher cipher = Cipher.getInstance(ALGORITHM);
+        cipher.init(Cipher.ENCRYPT_MODE, keySpec);
+        return cipher.doFinal(data);
+    }
+
+    public byte[] decrypt(byte[] data, String key) throws Exception {
+        SecretKeySpec keySpec = new SecretKeySpec(Base64.getDecoder().decode(key), ALGORITHM);
+        Cipher cipher = Cipher.getInstance(ALGORITHM);
+        cipher.init(Cipher.DECRYPT_MODE, keySpec);
+        return cipher.doFinal(data);
+    }
+
+    public EncryptedFile saveFile(byte[] encryptedContent, String key, String fileName) {
+        EncryptedFile file = new EncryptedFile();
+        file.setEncryptedContent(encryptedContent);
+        file.setEncryptionKey(key);
+        file.setKeyExpiration(LocalDateTime.now().plusMinutes(30));
+        file.setFileName(fileName);
+        return fileRepository.save(file);
+    }
+
+    public EncryptedFile getFile(Long id) {
+        return fileRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("File not found"));
     }
 }
