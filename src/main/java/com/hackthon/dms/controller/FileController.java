@@ -52,10 +52,12 @@ public class FileController {
         // Descriptografa o conteúdo do arquivo
         byte[] content = fileService.decrypt(file.getEncryptedContent(), key);
 
+        String contentType = file.getFileName().endsWith(".pdf") ? "application/pdf" : "application/octet-stream";
+
         // Definindo os cabeçalhos da resposta para o arquivo binário
         HttpHeaders headers = new HttpHeaders();
         headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + file.getFileName() + "\"");
-        headers.add(HttpHeaders.CONTENT_TYPE, "application/octet-stream"); // Ajuste conforme o tipo real do arquivo
+        headers.add(HttpHeaders.CONTENT_TYPE, contentType);
         headers.add(HttpHeaders.CONTENT_LENGTH, String.valueOf(content.length));
 
         // Retorna o arquivo binário descriptografado
