@@ -1,5 +1,7 @@
 package com.hackthon.dms.model;
 
+import java.time.LocalDateTime;
+
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -22,10 +24,9 @@ public class EncryptedFile {
     private String fileName;
 
     @Lob
-    private byte[] fileData;
+    private byte[] encryptedContent;
 
-    public EncryptedFile(String fileName, byte[] fileData) {
-        this.fileName = fileName;
-        this.fileData = fileData;
-    }
+    private String encryptionKey;
+
+    private LocalDateTime keyExpiration;
 }
