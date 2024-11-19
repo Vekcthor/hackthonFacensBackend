@@ -13,6 +13,7 @@ import javax.crypto.spec.SecretKeySpec;
 
 import java.time.LocalDateTime;
 import java.util.Base64;
+import java.util.List;
 
 @Service
 public class FileService {
@@ -21,6 +22,10 @@ public class FileService {
     private FileRepository fileRepository;
 
     private static final String ALGORITHM = "AES";
+
+    public List<EncryptedFile> listAllFiles(){
+        return fileRepository.findAll();
+    }
 
     public String generateKey() throws Exception {
         KeyGenerator keyGen = KeyGenerator.getInstance(ALGORITHM);
