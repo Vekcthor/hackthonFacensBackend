@@ -1,5 +1,6 @@
 package com.hackthon.dms.controller;
 
+import com.hackthon.dms.dto.EncryptedFileDTO;
 import com.hackthon.dms.model.EncryptedFile;
 import com.hackthon.dms.service.FileService;
 import org.springframework.web.bind.annotation.*;
@@ -18,30 +19,26 @@ public class FileController {
     private FileService fileService;
 
     @GetMapping
-    public List<EncryptedFile> findAllFiles(){
+    public List<EncryptedFile> findAllFiles() {
         return fileService.listAllFiles();
     }
 
     @PostMapping("/upload")
-    public ResponseEntity<String> uploadFile(@RequestParam("file") MultipartFile file,
+    public ResponseEntity<EncryptedFileDTO> uploadFile(@RequestParam("file") MultipartFile file,
             @RequestParam("fileName") String fileName) throws Exception {
-        // Processa o upload e retorna a chave
-        String key = fileService.processUpload(file, fileName);
-        return ResponseEntity.ok(key);
+        EncryptedFileDTO encryptedFileDTO = fileService.processUpload(file, fileName);
+        return ResponseEntity.ok(encryptedFileDTO);
     }
 
-    @GetMapping("/{id}")
-    public ResponseEntity<byte[]> downloadFile(@PathVariable Long id, @RequestParam String key) throws Exception {
-        // Processa o download
-        byte[] content = fileService.processDownload(id, key);
-        EncryptedFile file = fileService.getFile(id);
-
-        // Configura cabeçalhos da resposta
+    @GetMapping("/{randomIdentification}")
+    public ResponseEntity<byte[]> downloadFile(@PathVariable Long randomIdentification, @RequestParam String key)
+            throws Exception {
+        byte[] content = fileService.processDownload(randomIdentification, key);
+        EncryptedFile file = fileService.getFileByRandomIdentification(randomIdentification);
         HttpHeaders headers = new HttpHeaders();
         headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + file.getFileName() + "\"");
         headers.add(HttpHeaders.CONTENT_TYPE, fileService.getContentType(file.getFileName()));
         headers.add(HttpHeaders.CONTENT_LENGTH, String.valueOf(content.length));
-
         return ResponseEntity.ok().headers(headers).body(content);
     }
 }
