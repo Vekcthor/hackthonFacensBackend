@@ -161,9 +161,3 @@ curl -X GET "http://localhost:8080/download/12345?key=chave-de-criptografia"
 ## **Contribuições**
 
 Contribuições são bem-vindas! Se você encontrar algum problema ou tiver sugestões de melhorias, fique à vontade para abrir uma *issue* ou enviar um *pull request*.
-
----
-
-## **Licença**
-
-Este projeto é licenciado sob a [MIT License](LICENSE).
