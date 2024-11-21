@@ -21,6 +21,8 @@ public class EncryptedFile {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    private Long randomIdentification;
+
     private String fileName;
 
     @Lob
