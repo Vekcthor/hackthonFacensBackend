@@ -7,6 +7,8 @@ import com.hackthon.dms.repository.FileRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
+
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
@@ -119,10 +121,15 @@ public class FileService {
         }
     }
 
-    public byte[] processDownload(Long randomIdentification, String key) throws Exception {
+    public byte[] processDownloadAndGenerateHeaders(Long randomIdentification, String key) throws Exception {
         EncryptedFile file = getFileByRandomIdentification(randomIdentification);
         validateFileKey(file, key);
-        return decrypt(file.getEncryptedContent(), key);
+        byte[] content =  decrypt(file.getEncryptedContent(), key);
+        HttpHeaders headers = new HttpHeaders();
+        headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + file.getFileName() + "\"");
+        headers.add(HttpHeaders.CONTENT_TYPE, getContentType(file.getFileName()));
+        headers.add(HttpHeaders.CONTENT_LENGTH, String.valueOf(content.length));
+        return content;
     }
 
     public String getContentType(String fileName) {
