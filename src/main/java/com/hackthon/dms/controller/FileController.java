@@ -9,7 +9,6 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 
 @RestController
@@ -33,12 +32,7 @@ public class FileController {
     @GetMapping("/{randomIdentification}")
     public ResponseEntity<byte[]> downloadFile(@PathVariable Long randomIdentification, @RequestParam String key)
             throws Exception {
-        byte[] content = fileService.processDownload(randomIdentification, key);
-        EncryptedFile file = fileService.getFileByRandomIdentification(randomIdentification);
-        HttpHeaders headers = new HttpHeaders();
-        headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + file.getFileName() + "\"");
-        headers.add(HttpHeaders.CONTENT_TYPE, fileService.getContentType(file.getFileName()));
-        headers.add(HttpHeaders.CONTENT_LENGTH, String.valueOf(content.length));
-        return ResponseEntity.ok().headers(headers).body(content);
+        byte[] content = fileService.processDownloadAndGenerateHeaders(randomIdentification, key);
+        return ResponseEntity.ok().body(content);
     }
 }
