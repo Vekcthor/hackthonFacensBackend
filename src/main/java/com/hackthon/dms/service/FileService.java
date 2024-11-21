@@ -38,18 +38,18 @@ public class FileService {
         KeyGenerator keyGen = KeyGenerator.getInstance(ALGORITHM);
         keyGen.init(128);
         SecretKey key = keyGen.generateKey();
-        return Base64.getEncoder().encodeToString(key.getEncoded());
+        return Base64.getUrlEncoder().encodeToString(key.getEncoded());
     }
 
     private byte[] encrypt(byte[] data, String key) throws Exception {
-        SecretKeySpec keySpec = new SecretKeySpec(Base64.getDecoder().decode(key), ALGORITHM);
+        SecretKeySpec keySpec = new SecretKeySpec(Base64.getUrlDecoder().decode(key), ALGORITHM);
         Cipher cipher = Cipher.getInstance(ALGORITHM);
         cipher.init(Cipher.ENCRYPT_MODE, keySpec);
         return cipher.doFinal(data);
     }
 
     private byte[] decrypt(byte[] data, String key) throws Exception {
-        SecretKeySpec keySpec = new SecretKeySpec(Base64.getDecoder().decode(key), ALGORITHM);
+        SecretKeySpec keySpec = new SecretKeySpec(Base64.getUrlDecoder().decode(key), ALGORITHM);
         Cipher cipher = Cipher.getInstance(ALGORITHM);
         cipher.init(Cipher.DECRYPT_MODE, keySpec);
         return cipher.doFinal(data);
