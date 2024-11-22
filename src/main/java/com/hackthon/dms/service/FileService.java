@@ -1,9 +1,11 @@
 package com.hackthon.dms.service;
 
+import com.hackthon.dms.dto.DecryptedFileDTO;
 import com.hackthon.dms.dto.EncryptedFileDTO;
 import com.hackthon.dms.exception.GeneralApiError;
 import com.hackthon.dms.model.EncryptedFile;
 import com.hackthon.dms.repository.FileRepository;
+
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,6 +16,7 @@ import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.HashSet;
@@ -57,10 +60,12 @@ public class FileService {
         return cipher.doFinal(data);
     }
 
-    private EncryptedFile saveFile(byte[] encryptedContent, String key, String fileName, Long randomIdentification) {
+    private EncryptedFile saveFile(byte[] encryptedContent, String key, String fileName, Long randomIdentification,
+            String recipientName) {
         EncryptedFile file = new EncryptedFile();
         file.setRandomIdentification(randomIdentification);
         file.setFileName(fileName);
+        file.setRecipientName(recipientName);
         file.setEncryptedContent(encryptedContent);
         file.setEncryptionKey(key);
         file.setKeyExpiration(LocalDateTime.now().plusMinutes(30));
@@ -86,12 +91,16 @@ public class FileService {
         return randomNumber;
     }
 
-    private void validateFileAndFileName(MultipartFile file, String fileName) {
+    private void validateFileAndFileName(MultipartFile file, String fileName, String recipientName) {
         if (file == null || file.isEmpty()) {
             throw new GeneralApiError("File is required and cannot be empty.");
         }
         if (fileName == null || fileName.isBlank()) {
             throw new GeneralApiError("File Name is required and cannot be empty.");
+        }
+
+        if (recipientName == null || recipientName.isBlank()) {
+            throw new GeneralApiError("Recipient Name is required and cannot be empty.");
         }
     }
 
@@ -102,12 +111,12 @@ public class FileService {
                 .build();
     }
 
-    public EncryptedFileDTO processUpload(MultipartFile file, String fileName) throws Exception {
-        validateFileAndFileName(file, fileName);
+    public EncryptedFileDTO processUpload(MultipartFile file, String fileName, String recipientName) throws Exception {
+        validateFileAndFileName(file, fileName, recipientName);
         Long randomIdentification = processRandomIdentification();
         String key = generateKey();
         byte[] encryptedContent = encrypt(file.getBytes(), key);
-        saveFile(encryptedContent, key, fileName, randomIdentification);
+        saveFile(encryptedContent, key, fileName, randomIdentification, recipientName);
         return buildEncryptedFileDTO(randomIdentification, key);
     }
 
@@ -121,15 +130,29 @@ public class FileService {
         }
     }
 
-    public byte[] processDownloadAndGenerateHeaders(Long randomIdentification, String key) throws Exception {
-        EncryptedFile file = getFileByRandomIdentification(randomIdentification);
-        validateFileKey(file, key);
-        byte[] content =  decrypt(file.getEncryptedContent(), key);
-        HttpHeaders headers = new HttpHeaders();
+    private void buildHeaders(HttpHeaders headers, EncryptedFile file, int contentLength) {
         headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + file.getFileName() + "\"");
         headers.add(HttpHeaders.CONTENT_TYPE, getContentType(file.getFileName()));
-        headers.add(HttpHeaders.CONTENT_LENGTH, String.valueOf(content.length));
-        return content;
+        headers.add(HttpHeaders.CONTENT_LENGTH, String.valueOf(contentLength));
+    }
+
+    public DecryptedFileDTO processDownloadAndGenerateHeaders(Long randomIdentification, String key) throws Exception {
+        EncryptedFile file = getFileByRandomIdentification(randomIdentification);
+        validateFileKey(file, key);
+        byte[] content = decrypt(file.getEncryptedContent(), key);
+        HttpHeaders headers = new HttpHeaders();
+        buildHeaders(headers, file, content.length);
+        fileRepository.deleteById(file.getId());
+        return buildDecryptedFileDTO(content, file);
+    }
+
+    private DecryptedFileDTO buildDecryptedFileDTO(byte[] decryptContent, EncryptedFile file) {
+        // String content = new String(decryptContent, StandardCharsets.UTF_8);
+        return DecryptedFileDTO.builder()
+                .fileName(file.getFileName())
+                .recipientName(file.getRecipientName())
+                .decryptContent(decryptContent)
+                .build();
     }
 
     public String getContentType(String fileName) {

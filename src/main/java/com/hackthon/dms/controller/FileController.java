@@ -1,5 +1,6 @@
 package com.hackthon.dms.controller;
 
+import com.hackthon.dms.dto.DecryptedFileDTO;
 import com.hackthon.dms.dto.EncryptedFileDTO;
 import com.hackthon.dms.model.EncryptedFile;
 import com.hackthon.dms.service.FileService;
@@ -12,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 
 @RestController
+@CrossOrigin(origins = "*", allowedHeaders = "*")
 public class FileController {
 
     @Autowired
@@ -24,15 +26,17 @@ public class FileController {
 
     @PostMapping("/upload")
     public ResponseEntity<EncryptedFileDTO> uploadFile(@RequestParam("file") MultipartFile file,
-            @RequestParam("fileName") String fileName) throws Exception {
-        EncryptedFileDTO encryptedFileDTO = fileService.processUpload(file, fileName);
+            @RequestParam("fileName") String fileName, @RequestParam("recipientName") String recipientName)
+            throws Exception {
+        EncryptedFileDTO encryptedFileDTO = fileService.processUpload(file, fileName, recipientName);
         return ResponseEntity.ok(encryptedFileDTO);
     }
 
     @GetMapping("/{randomIdentification}")
-    public ResponseEntity<byte[]> downloadFile(@PathVariable Long randomIdentification, @RequestParam String key)
+    public ResponseEntity<DecryptedFileDTO> downloadFile(@PathVariable Long randomIdentification,
+            @RequestParam String key)
             throws Exception {
-        byte[] content = fileService.processDownloadAndGenerateHeaders(randomIdentification, key);
+        DecryptedFileDTO content = fileService.processDownloadAndGenerateHeaders(randomIdentification, key);
         return ResponseEntity.ok().body(content);
     }
 }
