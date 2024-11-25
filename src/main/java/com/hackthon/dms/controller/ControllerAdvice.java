@@ -1,5 +1,7 @@
 package com.hackthon.dms.controller;
 
+import javax.crypto.BadPaddingException;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -35,5 +37,11 @@ public class ControllerAdvice {
     @ExceptionHandler(MultipartException .class)
     public ErrorDTO handlerMultiApiError(MultipartException   error){
         return new ErrorDTO(error.getMessage());
+    }
+
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    @ExceptionHandler(BadPaddingException.class)
+    public ErrorDTO handleBadPaddingException(BadPaddingException error) {
+        return new ErrorDTO("Incorrect passphrase");
     }
 }
