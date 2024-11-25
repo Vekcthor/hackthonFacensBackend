@@ -15,9 +15,11 @@ import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.SecretKeySpec;
 
+import java.security.SecureRandom;
 import java.security.spec.KeySpec;
 import java.time.LocalDateTime;
 import java.util.Base64;
@@ -48,6 +50,28 @@ public class FileService {
         return Base64.getUrlEncoder().encodeToString(key.getEncoded());
     }
 
+    private byte[] generataIv(){
+        byte[] iv = new byte[16];
+        new SecureRandom().nextBytes(iv);
+        return iv;
+    }
+
+    private byte[] concatenateIvAndEncryptedData(byte[] iv, byte[] encryptedData) {
+        byte[] encryptedWithIv = new byte[iv.length + encryptedData.length];
+        System.arraycopy(iv, 0, encryptedWithIv, 0, iv.length);
+        System.arraycopy(encryptedData, 0, encryptedWithIv, iv.length, encryptedData.length);
+        return encryptedWithIv;
+    }
+
+    private byte[][] extractIvAndEncryptedData(byte[] data) {
+        byte[] iv = new byte[16];  // 16 bytes para AES
+        System.arraycopy(data, 0, iv, 0, iv.length);
+        byte[] encryptedData = new byte[data.length - iv.length];
+        System.arraycopy(data, iv.length, encryptedData, 0, encryptedData.length);
+        // Retorna um array bidimensional com o IV e os dados criptografados
+        return new byte[][] { iv, encryptedData };
+    }
+    
     private byte[] deriveKeyFromPassphrase(String passphrase, byte[] salt) throws Exception {
         KeySpec spec = new PBEKeySpec(passphrase.toCharArray(), salt, 65536, 128);
         SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
@@ -56,22 +80,26 @@ public class FileService {
 
     private byte[] encrypt(byte[] data, String key, String passphrase) throws Exception {
         byte[] derivedKey = deriveKeyFromPassphrase(passphrase, key.getBytes());
-        // SecretKeySpec keySpec = new SecretKeySpec(Base64.getUrlDecoder().decode(key),
-        // ALGORITHM);
         SecretKeySpec keySpec = new SecretKeySpec(derivedKey, ALGORITHM);
-        Cipher cipher = Cipher.getInstance(ALGORITHM);
-        cipher.init(Cipher.ENCRYPT_MODE, keySpec);
-        return cipher.doFinal(data);
+        byte[] iv = generataIv();
+        IvParameterSpec ivSpec = new IvParameterSpec(iv);
+        Cipher cipher = Cipher.getInstance(ALGORITHM + "/CBC/PKCS5Padding");
+        cipher.init(Cipher.ENCRYPT_MODE, keySpec, ivSpec);
+        byte[] encryptedData = cipher.doFinal(data);
+        return concatenateIvAndEncryptedData(iv, encryptedData);
     }
+    
 
     private byte[] decrypt(byte[] data, String key, String passphrase) throws Exception {
         byte[] derivedKey = deriveKeyFromPassphrase(passphrase, key.getBytes());
-        // SecretKeySpec keySpec = new SecretKeySpec(Base64.getUrlDecoder().decode(key),
-        // ALGORITHM);
         SecretKeySpec keySpec = new SecretKeySpec(derivedKey, ALGORITHM);
-        Cipher cipher = Cipher.getInstance(ALGORITHM);
-        cipher.init(Cipher.DECRYPT_MODE, keySpec);
-        return cipher.doFinal(data);
+        byte[][] ivAndEncryptedData = extractIvAndEncryptedData(data);
+        byte[] iv = ivAndEncryptedData[0]; // IV
+        byte[] encryptedData = ivAndEncryptedData[1];
+        IvParameterSpec ivSpec = new IvParameterSpec(iv);
+        Cipher cipher = Cipher.getInstance(ALGORITHM + "/CBC/PKCS5Padding");
+        cipher.init(Cipher.DECRYPT_MODE, keySpec, ivSpec);
+        return cipher.doFinal(encryptedData);
     }
 
     private EncryptedFile saveFile(byte[] encryptedContent, String key, String fileName, Long randomIdentification,
