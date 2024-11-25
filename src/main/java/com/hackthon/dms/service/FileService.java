@@ -14,8 +14,11 @@ import org.springframework.http.HttpHeaders;
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
+import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.SecretKeySpec;
 
+import java.security.spec.KeySpec;
 import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.HashSet;
@@ -45,15 +48,27 @@ public class FileService {
         return Base64.getUrlEncoder().encodeToString(key.getEncoded());
     }
 
-    private byte[] encrypt(byte[] data, String key) throws Exception {
-        SecretKeySpec keySpec = new SecretKeySpec(Base64.getUrlDecoder().decode(key), ALGORITHM);
+    private byte[] deriveKeyFromPassphrase(String passphrase, byte[] salt) throws Exception {
+        KeySpec spec = new PBEKeySpec(passphrase.toCharArray(), salt, 65536, 128);
+        SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
+        return factory.generateSecret(spec).getEncoded();
+    }
+
+    private byte[] encrypt(byte[] data, String key, String passphrase) throws Exception {
+        byte[] derivedKey = deriveKeyFromPassphrase(passphrase, key.getBytes());
+        // SecretKeySpec keySpec = new SecretKeySpec(Base64.getUrlDecoder().decode(key),
+        // ALGORITHM);
+        SecretKeySpec keySpec = new SecretKeySpec(derivedKey, ALGORITHM);
         Cipher cipher = Cipher.getInstance(ALGORITHM);
         cipher.init(Cipher.ENCRYPT_MODE, keySpec);
         return cipher.doFinal(data);
     }
 
-    private byte[] decrypt(byte[] data, String key) throws Exception {
-        SecretKeySpec keySpec = new SecretKeySpec(Base64.getUrlDecoder().decode(key), ALGORITHM);
+    private byte[] decrypt(byte[] data, String key, String passphrase) throws Exception {
+        byte[] derivedKey = deriveKeyFromPassphrase(passphrase, key.getBytes());
+        // SecretKeySpec keySpec = new SecretKeySpec(Base64.getUrlDecoder().decode(key),
+        // ALGORITHM);
+        SecretKeySpec keySpec = new SecretKeySpec(derivedKey, ALGORITHM);
         Cipher cipher = Cipher.getInstance(ALGORITHM);
         cipher.init(Cipher.DECRYPT_MODE, keySpec);
         return cipher.doFinal(data);
@@ -110,11 +125,12 @@ public class FileService {
                 .build();
     }
 
-    public EncryptedFileDTO processUpload(MultipartFile file, String fileName, String recipientName) throws Exception {
+    public EncryptedFileDTO processUpload(MultipartFile file, String fileName, String recipientName, String passphrase)
+            throws Exception {
         validateFileAndFileName(file, fileName, recipientName);
         Long randomIdentification = processRandomIdentification();
         String key = generateKey();
-        byte[] encryptedContent = encrypt(file.getBytes(), key);
+        byte[] encryptedContent = encrypt(file.getBytes(), key, passphrase);
         saveFile(encryptedContent, key, fileName, randomIdentification, recipientName);
         return buildEncryptedFileDTO(randomIdentification, key);
     }
@@ -135,10 +151,11 @@ public class FileService {
         headers.add(HttpHeaders.CONTENT_LENGTH, String.valueOf(contentLength));
     }
 
-    public DecryptedFileDTO processDownloadAndGenerateHeaders(Long randomIdentification, String key) throws Exception {
+    public DecryptedFileDTO processDownloadAndGenerateHeaders(Long randomIdentification, String key, String passphrase)
+            throws Exception {
         EncryptedFile file = getFileByRandomIdentification(randomIdentification);
         validateFileKey(file, key);
-        byte[] content = decrypt(file.getEncryptedContent(), key);
+        byte[] content = decrypt(file.getEncryptedContent(), key, passphrase);
         HttpHeaders headers = new HttpHeaders();
         buildHeaders(headers, file, content.length);
         fileRepository.deleteById(file.getId());
@@ -146,7 +163,6 @@ public class FileService {
     }
 
     private DecryptedFileDTO buildDecryptedFileDTO(byte[] decryptContent, EncryptedFile file) {
-        // String content = new String(decryptContent, StandardCharsets.UTF_8);
         return DecryptedFileDTO.builder()
                 .fileName(file.getFileName())
                 .recipientName(file.getRecipientName())
