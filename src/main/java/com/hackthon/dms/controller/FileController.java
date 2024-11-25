@@ -26,17 +26,18 @@ public class FileController {
 
     @PostMapping("/upload")
     public ResponseEntity<EncryptedFileDTO> uploadFile(@RequestParam("file") MultipartFile file,
-            @RequestParam("fileName") String fileName, @RequestParam("recipientName") String recipientName)
+            @RequestParam("fileName") String fileName, @RequestParam("recipientName") String recipientName,
+            @RequestParam("passphrase") String passphrase)
             throws Exception {
-        EncryptedFileDTO encryptedFileDTO = fileService.processUpload(file, fileName, recipientName);
+        EncryptedFileDTO encryptedFileDTO = fileService.processUpload(file, fileName, recipientName, passphrase);
         return ResponseEntity.ok(encryptedFileDTO);
     }
 
     @GetMapping("/{randomIdentification}")
     public ResponseEntity<DecryptedFileDTO> downloadFile(@PathVariable Long randomIdentification,
-            @RequestParam String key)
+            @RequestParam("key") String key, @RequestParam("passphrase") String passphrase)
             throws Exception {
-        DecryptedFileDTO content = fileService.processDownloadAndGenerateHeaders(randomIdentification, key);
+        DecryptedFileDTO content = fileService.processDownloadAndGenerateHeaders(randomIdentification, key, passphrase);
         return ResponseEntity.ok().body(content);
     }
 }
