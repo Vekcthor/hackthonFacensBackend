@@ -35,9 +35,9 @@ public class FileController {
 
     @GetMapping("/{randomIdentification}")
     public ResponseEntity<DecryptedFileDTO> downloadFile(@PathVariable Long randomIdentification,
-            @RequestParam("key") String key, @RequestParam("passphrase") String passphrase)
+            @RequestParam("passphrase") String passphrase)
             throws Exception {
-        DecryptedFileDTO content = fileService.processDownloadAndGenerateHeaders(randomIdentification, key, passphrase);
+        DecryptedFileDTO content = fileService.processDownloadAndGenerateHeaders(randomIdentification, passphrase);
         return ResponseEntity.ok().body(content);
     }
 }
