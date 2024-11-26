@@ -13,5 +13,4 @@ import lombok.Setter;
 @Builder
 public class EncryptedFileDTO {
     private Long randomIdentification;
-    private String encryptionKey;
 }
