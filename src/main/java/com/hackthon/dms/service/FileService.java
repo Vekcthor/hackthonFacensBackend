@@ -149,7 +149,6 @@ public class FileService {
     private EncryptedFileDTO buildEncryptedFileDTO(Long randomIdentification, String key) {
         return EncryptedFileDTO.builder()
                 .randomIdentification(randomIdentification)
-                .encryptionKey(key)
                 .build();
     }
 
@@ -179,9 +178,10 @@ public class FileService {
         headers.add(HttpHeaders.CONTENT_LENGTH, String.valueOf(contentLength));
     }
 
-    public DecryptedFileDTO processDownloadAndGenerateHeaders(Long randomIdentification, String key, String passphrase)
+    public DecryptedFileDTO processDownloadAndGenerateHeaders(Long randomIdentification, String passphrase)
             throws Exception {
         EncryptedFile file = getFileByRandomIdentification(randomIdentification);
+        String key = file.getEncryptionKey();
         validateFileKey(file, key);
         byte[] content = decrypt(file.getEncryptedContent(), key, passphrase);
         HttpHeaders headers = new HttpHeaders();
