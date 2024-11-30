@@ -34,6 +34,9 @@ public class EncryptedFile {
     @Column(name="encrypted_content")
     private byte[] encryptedContent;
 
+    @Column(name="mac_content")
+    private byte[] macContent;
+
     @Column(name="encryption_key")
     private String encryptionKey;
 

@@ -13,12 +13,14 @@ import org.springframework.http.HttpHeaders;
 
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
+import javax.crypto.Mac;
 import javax.crypto.SecretKey;
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.SecretKeySpec;
 
+import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.security.spec.KeySpec;
 import java.time.LocalDateTime;
@@ -38,6 +40,7 @@ public class FileService {
     private final Set<Long> generatedNumbers = new HashSet<>();
 
     private static final String ALGORITHM = "AES";
+    private static final String HMAC_ALGORITHM = "HmacSHA256";
 
     public List<EncryptedFile> listAllFiles() {
         return fileRepository.findAll();
@@ -45,9 +48,21 @@ public class FileService {
 
     private String generateKey() throws Exception {
         KeyGenerator keyGen = KeyGenerator.getInstance(ALGORITHM);
-        keyGen.init(128);
+        keyGen.init(256);
         SecretKey key = keyGen.generateKey();
         return Base64.getUrlEncoder().encodeToString(key.getEncoded());
+    }
+
+    private byte[] generateMac(byte[] data, String passphrase) throws Exception{
+        SecretKeySpec keyspec = new SecretKeySpec(passphrase.getBytes(), HMAC_ALGORITHM);
+        Mac mac = Mac.getInstance(HMAC_ALGORITHM);
+        mac.init(keyspec);
+        return mac.doFinal(data);
+    }
+
+    private Boolean verifyMac(byte[] data, byte[] especificMac, String passphrase) throws Exception{
+        byte[] calculatedMac = generateMac(data, passphrase);
+        return MessageDigest.isEqual(calculatedMac, especificMac);
     }
 
     private byte[] generataIv(){
@@ -68,12 +83,11 @@ public class FileService {
         System.arraycopy(data, 0, iv, 0, iv.length);
         byte[] encryptedData = new byte[data.length - iv.length];
         System.arraycopy(data, iv.length, encryptedData, 0, encryptedData.length);
-        // Retorna um array bidimensional com o IV e os dados criptografados
         return new byte[][] { iv, encryptedData };
     }
     
     private byte[] deriveKeyFromPassphrase(String passphrase, byte[] salt) throws Exception {
-        KeySpec spec = new PBEKeySpec(passphrase.toCharArray(), salt, 65536, 128);
+        KeySpec spec = new PBEKeySpec(passphrase.toCharArray(), salt, 65536, 256);
         SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
         return factory.generateSecret(spec).getEncoded();
     }
@@ -102,7 +116,7 @@ public class FileService {
         return cipher.doFinal(encryptedData);
     }
 
-    private EncryptedFile saveFile(byte[] encryptedContent, String key, String fileName, Long randomIdentification,
+    private EncryptedFile saveFile(byte[] encryptedContent, byte[] mac,  String key, String fileName, Long randomIdentification,
             String recipientName) {
         EncryptedFile file = new EncryptedFile();
         file.setRandomIdentification(randomIdentification);
@@ -110,6 +124,7 @@ public class FileService {
         file.setRecipientName(recipientName);
         file.setEncryptedContent(encryptedContent);
         file.setEncryptionKey(key);
+        file.setMacContent(mac);
         file.setKeyExpiration(LocalDateTime.now().plusMinutes(30));
         return fileRepository.save(file);
     }
@@ -158,7 +173,8 @@ public class FileService {
         Long randomIdentification = processRandomIdentification();
         String key = generateKey();
         byte[] encryptedContent = encrypt(file.getBytes(), key, passphrase);
-        saveFile(encryptedContent, key, fileName, randomIdentification, recipientName);
+        byte[] macContent = generateMac(encryptedContent, passphrase);
+        saveFile(encryptedContent, macContent, key, fileName, randomIdentification, recipientName);
         return buildEncryptedFileDTO(randomIdentification, key);
     }
 
@@ -169,6 +185,13 @@ public class FileService {
 
         if (file.getKeyExpiration().isBefore(LocalDateTime.now())) {
             throw new GeneralApiError("Key has expired");
+        }
+    }
+
+    void validateMacContent(byte[] data, byte[] especificMac, String passphrase) throws Exception{
+        Boolean veryfiedMac = verifyMac(data, especificMac, passphrase);
+        if(!veryfiedMac){
+            throw new GeneralApiError("Integrity Fail");
         }
     }
 
@@ -183,6 +206,10 @@ public class FileService {
         EncryptedFile file = getFileByRandomIdentification(randomIdentification);
         String key = file.getEncryptionKey();
         validateFileKey(file, key);
+        byte[] encryptedContent = new byte[256];
+        SecureRandom secureRandom = new SecureRandom();
+        secureRandom.nextBytes(encryptedContent);
+        validateMacContent(encryptedContent, file.getMacContent(), passphrase);
         byte[] content = decrypt(file.getEncryptedContent(), key, passphrase);
         HttpHeaders headers = new HttpHeaders();
         buildHeaders(headers, file, content.length);
@@ -201,4 +228,6 @@ public class FileService {
     public String getContentType(String fileName) {
         return fileName.endsWith(".pdf") ? "application/pdf" : "application/octet-stream";
     }
+
+
 }
