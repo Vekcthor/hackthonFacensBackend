@@ -65,9 +65,9 @@ public class FileService {
         return MessageDigest.isEqual(calculatedMac, especificMac);
     }
 
-    private byte[] generataIv(){
+    private byte[] generataIv() throws Exception{
         byte[] iv = new byte[16];
-        new SecureRandom().nextBytes(iv);
+        SecureRandom.getInstanceStrong().nextBytes(iv);
         return iv;
     }
 
